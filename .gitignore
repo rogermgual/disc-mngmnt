@@ -3,5 +3,5 @@ node_modules
 
 #Ignora el fichero de config
 config.json
-
 .eslintrc.json
+.env
