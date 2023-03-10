@@ -6,6 +6,8 @@ TOKEN = os.environ["WIPE_TOKEN"]
 intents = discord.Intents.default()
 client = discord.Client(intents=intents)
 
+client = commands.Bot(command_prefix='!')
+
 @client.event
 async def on_ready():
     print('Bot en línea')
