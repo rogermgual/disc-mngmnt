@@ -4,7 +4,7 @@ import discord
 TOKEN = os.environ["WIPE_TOKEN"]
 
 intents = discord.Intents.default()
-client = discord.Client()
+client = discord.Client(intents)
 
 @client.event
 async def on_ready():
