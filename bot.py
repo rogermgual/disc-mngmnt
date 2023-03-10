@@ -1,5 +1,7 @@
 import os
 import discord
+from discord.ext import commands
+
 
 TOKEN = os.environ["WIPE_TOKEN"]
 
