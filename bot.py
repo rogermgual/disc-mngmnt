@@ -1,6 +1,7 @@
+import os
 import discord
 
-TOKEN = 'OTk3NzA5OTE5NTA1NjMzMzUw.Grznmk.AVq3w0MnZAqMULb5xL45YcE_oY12GGelLmYY2c'
+TOKEN = os.environ["WIPE_TOKEN"]
 
 client = discord.Client()
 
