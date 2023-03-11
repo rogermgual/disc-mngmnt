@@ -6,9 +6,9 @@ from discord.ext import commands
 TOKEN = os.environ["WIPE_TOKEN"]
 
 intents = discord.Intents.default()
-client = discord.Client(intents=intents)
+#client = discord.Client(intents=intents)
 
-client = commands.Bot(command_prefix='!')
+client = commands.Bot(command_prefix='!', intents=intents)
 
 @client.event
 async def on_ready():
