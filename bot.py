@@ -17,6 +17,8 @@ async def on_ready():
 @client.event
 async def on_message(message):
     if message.content.startswith('!hola'):
+        print("El comando está listo para recibir !hola")
         await message.channel.send('¡Hola!')
+        print("El comando debe enviar '¡Hola!'")
 
 client.run(TOKEN)
