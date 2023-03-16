@@ -1,25 +1,19 @@
-import os
 import discord
 from discord.ext import commands
-
+from discord_slash import SlashCommand
 
 TOKEN = os.environ["WIPE_TOKEN"]
 
-intents = discord.Intents.default()
-#client = discord.Client(intents=intents)
+bot = commands.Bot(command_prefix='/')
+slash = SlashCommand(bot, sync_commands=True)
 
-client = commands.Bot(command_prefix='!', intents=intents)
+@slash.slash(name="ping")
+async def _ping(ctx):
+    await ctx.send("Pong!")
 
-@client.event
-async def on_ready():
-    print('Bot en línea')
+@slash.slash(name="server")
+async def _server(ctx):
+    guild = ctx.guild
+    await ctx.send(f"Server name: {guild.name}\nTotal members: {guild.member_count}")
 
-@client.event
-async def on_message(message):
-    print("El comando está listo para recibir !hola")
-    if message.content.startswith('!hola'):
-        print("debug #0")
-        await message.channel.send('¡Hola!')
-        print("debug #1")
-
-client.run(TOKEN)
+bot.run(TOKEN)
