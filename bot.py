@@ -1,4 +1,5 @@
 import discord
+import interactions
 from discord.ext import commands
 from discord_slash import SlashCommand
 
