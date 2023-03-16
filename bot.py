@@ -1,7 +1,13 @@
 import discord
 import interactions
+import sys
 from discord.ext import commands
 from discord_slash import SlashCommand
+
+print(sys.path)
+
+sys.path.append('/home/hrodger/.local/lib/python3.9/site-packages')
+print(sys.path)
 
 TOKEN = os.environ["WIPE_TOKEN"]
 
