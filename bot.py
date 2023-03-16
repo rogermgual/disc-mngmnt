@@ -18,3 +18,4 @@ async def _server(ctx):
     await ctx.send(f"Server name: {guild.name}\nTotal members: {guild.member_count}")
 
 bot.run(TOKEN)
+session.close()
