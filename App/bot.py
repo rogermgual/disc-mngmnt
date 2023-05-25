@@ -14,7 +14,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 #importing environment variables
-TOKEN = os.environ["WIPE_TOKEN"]
+TOKEN = os.environ["DISCORD_TOKEN"]
 
 #test if bot is ready
 @bot.command()
