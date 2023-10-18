@@ -14,7 +14,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 #importing environment variables
-TOKEN = os.environ["DISCORD_TOKEN"]
+#TOKEN = os.environ["DISCORD_TOKEN"]
 
 #test if bot is ready
 @bot.command()
@@ -83,10 +83,12 @@ async def create_reminder(ctx, days_str, time_str, channel_name, *, message):
 
     bot.loop.create_task(send_reminder())
 
+
 #hello world message
 @bot.event
 async def on_ready():
     print(f'Bot connected as {bot.user.name}')
 
 # Run the bot
+TOKEN = "OTk3NzA5OTE5NTA1NjMzMzUw.GX571H.aAOB1qcUpcJ2CtWSRIVlj-wTXiu_M_rHkMDThU"
 bot.run(TOKEN)
