@@ -1,8 +1,13 @@
+# Discord Management python bot
+Python slash commands
 
+## Functionalities
+### At this moment
+- Say hello to the person who /hello
+- PLays ping pong with who /ping
 
-## How to create new images with your own token
-Build the docker image with the specific Discord Token
-```docker build -t wipeingway-bot -e DISCORD_TOKEN=<discord token here> .``
-
-Run the container image
-```docker run -it --rm wipeingway-bot```
+### To implement
+- Birthday
+    - Register people's birthday
+    - Make @everyone congrats to the people's bday at that birthday at 00.00 (ESP)
+    - Remember weekly the upcoming birthdays this week
