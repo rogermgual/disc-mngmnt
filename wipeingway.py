@@ -29,15 +29,13 @@ async def on_ready():
 @bot.tree.command(name="hello")
 async def hello (interaction: discord.Interaction):
     await interaction.response.send_message(
-        f"¿Como estás {interaction.user.mention}?\nFeliz wipe :rabbit:",
-        ephemeral=True)
+        f"¿Como estás {interaction.user.mention}?\nFeliz wipe :rabbit:")
 
 #Bot function to play ping pong
 @bot.tree.command(name="ping")
 async def ping (interaction: discord.Interaction):
     await interaction.response.send_message(
-        f"pong!",
-        ephemeral=True)
+        f"pong!")
 
 #Application init
 bot.run(TOKEN)
