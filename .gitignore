@@ -1,7 +1,4 @@
-# Ignora la carpeta node_modules
-node_modules
-
-#Ignora el fichero de config
+#Ignore the config file
 config.json
 .eslintrc.json
 .env
