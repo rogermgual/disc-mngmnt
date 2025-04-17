@@ -2,3 +2,5 @@
 config.json
 .eslintrc.json
 .env
+venv
+__pycache__
