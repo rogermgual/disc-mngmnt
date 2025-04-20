@@ -56,10 +56,7 @@ async def on_ready():
     async def scheduled_announce_today():
         await announce_today_birthdays()
 
-    @bot.event
-    async def on_ready():
-        ...
-        scheduler.start()
+    scheduler.start()
 
 
 # Tasks
