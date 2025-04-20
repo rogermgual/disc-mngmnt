@@ -7,7 +7,7 @@ from discord import app_commands
 from discord.ext import tasks, commands
 from dotenv import load_dotenv
 
-from database.db import Database
+from app.database.funcs import Database
 
 # Charge the environment variables
 load_dotenv()
@@ -78,27 +78,32 @@ async def ping(interaction: discord.Interaction):
 ## Birthdays
 @bot.tree.command(name="birthday_add", description="Register a birthday.")
 async def birthday_add(interaction: discord.Interaction, day: int, month: int):
-    """Register a birthday if the user doesn't have one. If it does, it sends an informative message.
-
-    Args:
-        interaction (discord.Interaction): 
-        day (int): Day of the birthday.
-        month (int): Month of the birthday.
-    """
+    """Register a birthday if the user doesn't have one. If it does, it sends an informative message."""
     print("Registering birthday...")
-    user_id = interaction.user.id
+    user_id = str(interaction.user.id)
+
     try:
-        existing = await db.fetchrow("SELECT * FROM users WHERE discord_id = $1", user_id)
+        existing = await db.fetchrow("SELECT * FROM birthdays WHERE discord_id = $1", user_id)
+
         if existing:
-            await db.execute("UPDATE users SET bday_day = $1, bday_month = $2 WHERE discord_id = $3", day, month, user_id)
-            message = f"Birthday updated successfully to {day}/{month}!"
+            await db.execute(
+                "UPDATE birthdays SET bday_day = $1, bday_month = $2 WHERE discord_id = $3",
+                day, month, user_id
+            )
+            message = f"🎂 Birthday updated successfully to {day}/{month}!"
         else:
-            await db.execute("INSERT INTO users (discord_id, bday_day, bday_month) VALUES ($1, $2, $3)", user_id, day, month)
-            message = f"Birthday registered successfully on {day}/{month}!"
+            await db.execute(
+                "INSERT INTO birthdays (discord_id, bday_day, bday_month) VALUES ($1, $2, $3)",
+                user_id, day, month
+            )
+            message = f"🎉 Birthday registered successfully on {day}/{month}!"
+
     except Exception as e:
         print(f"An error occurred: {e}")
-    
+        message = "❌ An error occurred while saving your birthday."
+
     await interaction.response.send_message(message)
+
 
 @bot.tree.command(name="birthday_remove", description="Remove a birthday.")
 async def birthday_remove(interaction: discord.Interaction):

@@ -1,0 +1,54 @@
+import sqlite3
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DB_PATH = os.getenv("DB_PATH")
+DB_NAME = os.getenv("DB_NAME")
+FULL_DB_PATH = os.path.join(DB_PATH, DB_NAME)
+
+class Database:
+    def __init__(self):
+        self._ensure_table_exists()
+
+    def _connect(self):
+        return sqlite3.connect(FULL_DB_PATH)
+
+    def _ensure_table_exists(self):
+        conn = self._connect()
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS birthdays (
+                discord_id TEXT PRIMARY KEY,
+                bday_day INTEGER NOT NULL CHECK (bday_day >= 1 AND bday_day <= 31),
+                bday_month INTEGER NOT NULL CHECK (bday_month >= 1 AND bday_month <= 12)
+            )
+        """)
+        conn.commit()
+        conn.close()
+
+    async def fetchrow(self, query, *params):
+        conn = self._connect()
+        cursor = conn.cursor()
+        cursor.execute(query.replace("$1", "?").replace("$2", "?").replace("$3", "?"), params)
+        row = cursor.fetchone()
+        conn.close()
+        return row
+
+    async def fetch(self, query, *params):
+        conn = self._connect()
+        cursor = conn.cursor()
+        cursor.execute(query.replace("$1", "?").replace("$2", "?").replace("$3", "?").replace("$4", "?"), params)
+        rows = cursor.fetchall()
+        conn.close()
+        return [
+            {"discord_id": r[0], "bday_day": r[1], "bday_month": r[2]} for r in rows
+        ]
+
+    async def execute(self, query, *params):
+        conn = self._connect()
+        cursor = conn.cursor()
+        cursor.execute(query.replace("$1", "?").replace("$2", "?").replace("$3", "?"), params)
+        conn.commit()
+        conn.close()
