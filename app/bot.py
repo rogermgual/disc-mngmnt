@@ -7,7 +7,7 @@ from discord import app_commands
 from discord.ext import tasks, commands
 from dotenv import load_dotenv
 
-from app.database.funcs import Database
+from database.funcs import Database
 
 # Charge the environment variables
 load_dotenv()
