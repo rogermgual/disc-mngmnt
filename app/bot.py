@@ -13,6 +13,20 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 import pytz
 
+async def get_birthdays(user_id: str = None):
+    """
+    Fetches birthdays from the database. If user_id is None, fetches all.
+    """
+    if user_id:
+        result = await db.fetch(
+            "SELECT discord_id, bday_day, bday_month FROM birthdays WHERE discord_id = $1",
+            user_id
+        )
+    else:
+        result = await db.fetch(
+            "SELECT discord_id, bday_day, bday_month FROM birthdays"
+        )
+    return result
 
 # Charge the environment variables
 load_dotenv()
@@ -183,6 +197,42 @@ async def birthday_week(interaction: discord.Interaction):
 
     await interaction.response.send_message(message)
 
+@bot.tree.command(name="birthday_check_all", description="List all registered birthdays.")
+async def birthday_check_all(interaction: discord.Interaction):
+    """
+    Lists all registered birthdays in the database.
+    """
+    try:
+        birthdays = await get_birthdays()
+        if birthdays:
+            message = "🎂 **Registered Birthdays:**\n"
+            for user in birthdays:
+                message += f"<@{user['discord_id']}> - {user['bday_day']}/{user['bday_month']}\n"
+        else:
+            message = "ℹ️ No birthdays registered."
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch all birthdays: {e}")
+        message = "❌ An error occurred while fetching all birthdays."
+    await interaction.response.send_message(message)
+
+
+@bot.tree.command(name="birthday_check", description="Check a user's birthday by Discord ID.")
+@app_commands.describe(discord_id="Discord user ID to check birthday for.")
+async def birthday_check(interaction: discord.Interaction, discord_id: str):
+    """
+    Checks a user's birthday by their Discord ID.
+    """
+    try:
+        birthdays = await get_birthdays(discord_id)
+        if birthdays:
+            user = birthdays[0]
+            message = f"🎂 <@{user['discord_id']}> birthday is {user['bday_day']}/{user['bday_month']}"
+        else:
+            message = "ℹ️ No birthday registered for that user."
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch birthday: {e}")
+        message = "❌ An error occurred while fetching the birthday."
+    await interaction.response.send_message(message)
 
 
 async def announce_today_birthdays():
