@@ -1,0 +1,8 @@
+#Builds new image
+docker build -t disc-bot .
+#Executes the container with autorestart and locations for the database
+docker run -d   --name disc-bot   --env-file .env   -v /mnt/external-disk:/mnt/external-disk   --restart unless-stopped   disc-bot
+
+#Stops the container and deletes the image
+docker stop disc-bot
+docker rm disc-bot
