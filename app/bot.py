@@ -28,6 +28,17 @@ async def get_birthdays(user_id: str = None):
         )
     return result
 
+async def get_username_from_id(bot, user_id: str):
+    """
+    Fetches the username from a user ID.
+    If the user is not found, returns "ID:{user_id}".
+    """
+    try:
+        user = await bot.fetch_user(int(user_id))
+        return user.name if user else f"ID:{user_id}"
+    except Exception:
+        return f"ID:{user_id}"
+
 # Charge the environment variables
 load_dotenv()
 
@@ -207,7 +218,8 @@ async def birthday_check_all(interaction: discord.Interaction):
         if birthdays:
             message = "🎂 **Registered Birthdays:**\n"
             for user in birthdays:
-                message += f"<@{user['discord_id']}> - {user['bday_day']}/{user['bday_month']}\n"
+                username = await get_username_from_id(bot, user['discord_id'])
+                message += f"{username} - {user['bday_day']}/{user['bday_month']}\n"
         else:
             message = "ℹ️ No birthdays registered."
     except Exception as e:
@@ -216,19 +228,25 @@ async def birthday_check_all(interaction: discord.Interaction):
     await interaction.response.send_message(message)
 
 
-@bot.tree.command(name="birthday_check", description="Check a user's birthday by Discord ID.")
-@app_commands.describe(discord_id="Discord user ID to check birthday for.")
-async def birthday_check(interaction: discord.Interaction, discord_id: str):
+@bot.tree.command(name="birthday_check", description="Check a user's birthday by username.")
+@app_commands.describe(username="Discord username to check birthday for.")
+async def birthday_check(interaction: discord.Interaction, username: str):
     """
-    Checks a user's birthday by their Discord ID.
+    Checks a user's birthday by their Discord username.
     """
     try:
-        birthdays = await get_birthdays(discord_id)
-        if birthdays:
-            user = birthdays[0]
-            message = f"🎂 <@{user['discord_id']}> birthday is {user['bday_day']}/{user['bday_month']}"
+        # Fetch all birthdays and compare names
+        birthdays = await get_birthdays()
+        found = None
+        for user in birthdays:
+            uname = await get_username_from_id(bot, user['discord_id'])
+            if uname.lower() == username.lower():
+                found = user
+                break
+        if found:
+            message = f"🎂 {username} birthday is {found['bday_day']}/{found['bday_month']}"
         else:
-            message = "ℹ️ No birthday registered for that user."
+            message = "ℹ️ No birthday registered for that username."
     except Exception as e:
         print(f"[ERROR] Failed to fetch birthday: {e}")
         message = "❌ An error occurred while fetching the birthday."
