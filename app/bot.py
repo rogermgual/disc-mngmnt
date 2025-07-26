@@ -35,8 +35,8 @@ async def on_ready():
     await bot.change_presence(activity=discord.Game(name="Kweh!"))
     server_updates = bot.get_channel(int(os.getenv("SERVER_UPDATES_CHANNEL_ID")))
 
-    if server_updates:
-        await server_updates.send("**¡Kweh! I'm ready to serve!**")
+    #if server_updates:
+        #await server_updates.send("**¡Kweh! I'm ready to serve!**")
 
     try:
         # Sync the commands
