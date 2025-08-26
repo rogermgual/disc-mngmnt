@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -13,6 +14,10 @@ class Database:
 
     def _connect(self):
         return sqlite3.connect(DB_PATH)
+
+    def _prepare_query(self, query: str) -> str:
+        """Replace $1 style placeholders with SQLite compatible '?'"""
+        return re.sub(r"\$\d+", "?", query)
 
     def _ensure_table_exists(self):
         try:
@@ -35,7 +40,7 @@ class Database:
         try:
             conn = self._connect()
             cursor = conn.cursor()
-            cursor.execute(query.replace("$1", "?").replace("$2", "?").replace("$3", "?"), params)
+            cursor.execute(self._prepare_query(query), params)
             row = cursor.fetchone()
             conn.close()
             return row
@@ -47,7 +52,7 @@ class Database:
         try:
             conn = self._connect()
             cursor = conn.cursor()
-            cursor.execute(query.replace("$1", "?").replace("$2", "?").replace("$3", "?").replace("$4", "?"), params)
+            cursor.execute(self._prepare_query(query), params)
             rows = cursor.fetchall()
             conn.close()
             return [
@@ -61,7 +66,7 @@ class Database:
         try:
             conn = self._connect()
             cursor = conn.cursor()
-            cursor.execute(query.replace("$1", "?").replace("$2", "?").replace("$3", "?"), params)
+            cursor.execute(self._prepare_query(query), params)
             conn.commit()
             conn.close()
             print("[INFO] Query executed successfully.")
