@@ -1,3 +1,4 @@
+import logging
 import sqlite3
 import os
 from dotenv import load_dotenv
@@ -6,6 +7,7 @@ load_dotenv()
 
 DB_PATH = os.getenv("DB_PATH")
 DB_NAME = os.getenv("DB_NAME")
+logger = logging.getLogger("disc_bot")
 
 class Database:
     def __init__(self):
@@ -27,9 +29,9 @@ class Database:
             """)
             conn.commit()
             conn.close()
-            print("[INFO] Database initialized and table ensured.")
+            logger.info("Database initialized and table ensured.")
         except Exception as e:
-            print(f"[ERROR] Failed to initialize database: {e}")
+            logger.error("Failed to initialize database: %s", e, exc_info=True)
 
     async def fetchrow(self, query, *params):
         try:
@@ -40,7 +42,7 @@ class Database:
             conn.close()
             return row
         except Exception as e:
-            print(f"[ERROR] fetchrow failed: {e}")
+            logger.error("fetchrow failed: %s", e, exc_info=True)
             return None
 
     async def fetch(self, query, *params):
@@ -54,7 +56,7 @@ class Database:
                 {"discord_id": r[0], "bday_day": r[1], "bday_month": r[2]} for r in rows
             ]
         except Exception as e:
-            print(f"[ERROR] fetch failed: {e}")
+            logger.error("fetch failed: %s", e, exc_info=True)
             return []
 
     async def execute(self, query, *params):
@@ -64,6 +66,6 @@ class Database:
             cursor.execute(query.replace("$1", "?").replace("$2", "?").replace("$3", "?"), params)
             conn.commit()
             conn.close()
-            print("[INFO] Query executed successfully.")
+            logger.info("Query executed successfully.")
         except Exception as e:
-            print(f"[ERROR] Query execution failed: {e}")
+            logger.error("Query execution failed: %s", e, exc_info=True)

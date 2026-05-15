@@ -4,3 +4,7 @@ config.json
 .env
 venv
 __pycache__
+
+# Ignore logs directory and local error logs
+logs/
+errors.log

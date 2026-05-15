@@ -1,9 +1,8 @@
 import os
-import discord
+import logging
 import time
 import datetime
-
-from database.funcs import Database
+import discord
 
 from discord import app_commands
 from discord.ext import tasks, commands
@@ -12,6 +11,43 @@ from dotenv import load_dotenv
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 import pytz
+
+load_dotenv()
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+DEFAULT_LOG_DIR = os.getenv("LOG_DIR", "/opt/discord-bot/logs")
+LOG_DIR = os.path.abspath(DEFAULT_LOG_DIR)
+LOG_FILE_PATH = os.getenv("ERROR_LOG_PATH", os.path.join(LOG_DIR, "errors.log"))
+
+try:
+    os.makedirs(LOG_DIR, exist_ok=True)
+except PermissionError:
+    local_log_dir = os.path.join(BASE_DIR, "logs")
+    try:
+        os.makedirs(local_log_dir, exist_ok=True)
+        LOG_DIR = local_log_dir
+        LOG_FILE_PATH = os.getenv("ERROR_LOG_PATH", os.path.join(LOG_DIR, "errors.log"))
+        print(f"WARNING: Cannot write to {DEFAULT_LOG_DIR}. Falling back to local log directory {LOG_DIR}.")
+    except Exception as fallback_error:
+        print(f"ERROR: Cannot create fallback log directory {local_log_dir}: {fallback_error}")
+        raise
+
+logger = logging.getLogger("disc_bot")
+logger.setLevel(logging.INFO)
+formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", "%Y-%m-%d %H:%M:%S")
+
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(formatter)
+
+file_handler = logging.FileHandler(LOG_FILE_PATH, encoding="utf-8")
+file_handler.setLevel(logging.ERROR)
+file_handler.setFormatter(formatter)
+
+logger.addHandler(console_handler)
+logger.addHandler(file_handler)
+logger.info("Logger initialized, writing errors to %s", LOG_FILE_PATH)
+
+from database.funcs import Database
 
 async def get_birthdays(user_id: str = None):
     """
@@ -56,7 +92,7 @@ async def on_ready():
     """
     Event that triggers when the bot is ready to serve.
     """
-    print(f'{bot.user} ready to serve!')
+    logger.info("%s ready to serve!", bot.user)
     await bot.change_presence(activity=discord.Game(name="Kweh!"))
     server_updates = bot.get_channel(int(os.getenv("SERVER_UPDATES_CHANNEL_ID")))
 
@@ -66,18 +102,18 @@ async def on_ready():
     try:
         # Sync the commands
         await bot.tree.sync()
-        print("Commands synchronized.")
+        logger.info("Commands synchronized.")
     except Exception as e:
-        print(f"Error on syncing commands: {e}")
+        logger.error("Error on syncing commands: %s", e, exc_info=True)
 
 
     #Birthday checks
     scheduler = AsyncIOScheduler(timezone=pytz.timezone("Europe/Madrid"))
-    @scheduler.scheduled_job(CronTrigger(hour=0, minute=0, day_of_week="mon"))
+    @scheduler.scheduled_job(CronTrigger(hour=9, minute=0))
     async def scheduled_announce_week():
         await announce_upcoming_birthdays()
 
-    @scheduler.scheduled_job(CronTrigger(hour=0, minute=0))
+    @scheduler.scheduled_job(CronTrigger(hour=9, minute=0))
     async def scheduled_announce_today():
         await announce_today_birthdays()
 
@@ -105,7 +141,7 @@ async def ping(interaction: discord.Interaction):
     Args:
         interaction (discord.Interaction): 
     """
-    print("Pinging...")
+    logger.info("Pinging...")
     start_time = time.perf_counter()
     
     await interaction.response.send_message("Pong!")
@@ -113,28 +149,34 @@ async def ping(interaction: discord.Interaction):
     end_time = time.perf_counter()
     elapsed_time = (end_time - start_time) * 1000 # in milliseconds
 
-    print(f"Latency: {elapsed_time:.2f}ms")
+    logger.info("Latency: %.2fms", elapsed_time)
 
 
 ## Birthdays
 @bot.tree.command(name="birthday_add", description="Register a birthday.")
 async def birthday_add(interaction: discord.Interaction, day: int, month: int):
     """Register a birthday if the user doesn't have one. If it does, it sends an informative message."""
-    print("Registering birthday...")
+    logger.info("Registering birthday for user %s", interaction.user.id)
     user_id = str(interaction.user.id)
 
     try:
         existing = await db.fetchrow("SELECT * FROM birthdays WHERE discord_id = $1", user_id)
 
         if existing:
-            print("User already have a birthday. Updating it...")
-            await db.execute(
-                "UPDATE birthdays SET bday_day = $1, bday_month = $2 WHERE discord_id = $3",
-                day, month, user_id
-            )
-            message = f"🎂 Birthday updated successfully to {day}/{month}!"
+            existing_day = existing[1]
+            existing_month = existing[2]
+            if existing_day == day and existing_month == month:
+                logger.info("User %s submitted the same birthday %s/%s.", user_id, day, month)
+                message = f"🎂 Your birthday is already registered as {day}/{month}."
+            else:
+                logger.info("User %s already has a birthday. Updating it from %s/%s to %s/%s.", user_id, existing_day, existing_month, day, month)
+                await db.execute(
+                    "UPDATE birthdays SET bday_day = $1, bday_month = $2 WHERE discord_id = $3",
+                    day, month, user_id
+                )
+                message = f"🎂 Birthday updated successfully to {day}/{month}!"
         else:
-            print("Adding new user birthday...")
+            logger.info("Adding new user birthday for %s", user_id)
             await db.execute(
                 "INSERT INTO birthdays (discord_id, bday_day, bday_month) VALUES ($1, $2, $3)",
                 user_id, day, month
@@ -142,7 +184,7 @@ async def birthday_add(interaction: discord.Interaction, day: int, month: int):
             message = f"🎉 Birthday registered successfully on {day}/{month}!"
 
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logger.error("An error occurred while saving birthday for %s: %s", user_id, e, exc_info=True)
         message = "❌ An error occurred while saving your birthday."
 
     await interaction.response.send_message(message)
@@ -151,7 +193,7 @@ async def birthday_add(interaction: discord.Interaction, day: int, month: int):
 @bot.tree.command(name="birthday_remove", description="Remove a birthday.")
 async def birthday_remove(interaction: discord.Interaction):
     """Removes the birthday of the user if it exists."""
-    print("Removing birthday...")
+    logger.info("Removing birthday for user %s", interaction.user.id)
     user_id = str(interaction.user.id)
 
     try:
@@ -167,7 +209,7 @@ async def birthday_remove(interaction: discord.Interaction):
             message = "ℹ️ You don't have a registered birthday."
 
     except Exception as e:
-        print(f"[ERROR] Failed to remove birthday: {e}")
+        logger.error("Failed to remove birthday for %s: %s", user_id, e, exc_info=True)
         message = "❌ Something went wrong trying to remove your birthday."
 
     await interaction.response.send_message(message)
@@ -203,7 +245,7 @@ async def birthday_week(interaction: discord.Interaction):
             message = "ℹ️ No upcoming birthdays this week."
 
     except Exception as e:
-        print(f"[ERROR] Failed to fetch weekly birthdays: {e}")
+        logger.error("Failed to fetch weekly birthdays: %s", e, exc_info=True)
         message = "❌ An error occurred while checking birthdays."
 
     await interaction.response.send_message(message)
@@ -223,7 +265,7 @@ async def birthday_check_all(interaction: discord.Interaction):
         else:
             message = "ℹ️ No birthdays registered."
     except Exception as e:
-        print(f"[ERROR] Failed to fetch all birthdays: {e}")
+        logger.error("Failed to fetch all birthdays: %s", e, exc_info=True)
         message = "❌ An error occurred while fetching all birthdays."
     await interaction.response.send_message(message)
 
@@ -248,7 +290,7 @@ async def birthday_check(interaction: discord.Interaction, username: str):
         else:
             message = "ℹ️ No birthday registered for that username."
     except Exception as e:
-        print(f"[ERROR] Failed to fetch birthday: {e}")
+        logger.error("Failed to fetch birthday for %s: %s", username, e, exc_info=True)
         message = "❌ An error occurred while fetching the birthday."
     await interaction.response.send_message(message)
 
@@ -257,7 +299,7 @@ async def announce_today_birthdays():
     """
     Announces birthdays happening today.
     """
-    print("[INFO] Checking today's birthdays...")
+    logger.info("Checking today's birthdays...")
     today = datetime.date.today()
 
     try:
@@ -269,54 +311,73 @@ async def announce_today_birthdays():
         if birthdays_today:
             channel = bot.get_channel(int(os.getenv("SERVER_UPDATES_CHANNEL_ID")))
             if channel:
-                mentions = " ".join(f"<@{user['discord_id']}>" for user in birthdays_today)
-                await channel.send(f"🎂 @here Happy Birthday {mentions}! 🎉 Have an amazing day! 🎈")
+                for user in birthdays_today:
+                    await channel.send(f"Kweh! Kweh! @everyone felicitad a <@{user['discord_id']}> 🎉🥳")
             else:
-                print("[WARN] Birthday channel not found.")
+                logger.warning("Birthday channel not found.")
         else:
-            print("[INFO] No birthdays today.")
+            logger.info("No birthdays today.")
 
     except Exception as e:
-        print(f"[ERROR] Failed to announce today's birthdays: {e}")
+        logger.error("Failed to announce today's birthdays: %s", e, exc_info=True)
+
+
+@bot.tree.command(name="birthday_announce_today", description="Announce today's birthdays manually.")
+async def birthday_announce_today(interaction: discord.Interaction):
+    try:
+        await announce_today_birthdays()
+        await interaction.response.send_message("✅ Today's birthday announcement triggered.", ephemeral=True)
+    except Exception as e:
+        logger.error("Failed to trigger today's birthdays: %s", e, exc_info=True)
+        await interaction.response.send_message("❌ Failed to trigger today's birthday announcement.", ephemeral=True)
 
 
 async def announce_upcoming_birthdays():
     """
-    Announces the birthdays for the upcoming week.
+    Announces the birthdays for the next 7 days.
     """
-    print("[INFO] Checking upcoming birthdays...")
+    logger.info("Checking upcoming birthdays...")
     today = datetime.date.today()
-    start_week = today - datetime.timedelta(days=today.weekday())  # Monday
-    end_week = start_week + datetime.timedelta(days=6)
+    upcoming_birthdays = []
 
     try:
-        upcoming_birthdays = await db.fetch(
-            """
-            SELECT discord_id, bday_day, bday_month FROM birthdays
-            WHERE (bday_month = $1 AND bday_day >= $2) 
-            OR (bday_month = $3 AND bday_day <= $4)
-            OR (bday_month > $5 AND bday_month < $6)
-            """,
-            start_week.month, start_week.day,
-            end_week.month, end_week.day,
-            start_week.month, end_week.month
-        )
+        for delta in range(1, 8):
+            check_date = today + datetime.timedelta(days=delta)
+            birthdays = await db.fetch(
+                "SELECT discord_id, bday_day, bday_month FROM birthdays WHERE bday_day = $1 AND bday_month = $2",
+                check_date.day, check_date.month
+            )
+            for user in birthdays:
+                upcoming_birthdays.append({
+                    'discord_id': user['discord_id'],
+                    'bday_day': user['bday_day'],
+                    'bday_month': user['bday_month'],
+                    'check_date': check_date
+                })
 
         if upcoming_birthdays:
             channel = bot.get_channel(int(os.getenv("SERVER_UPDATES_CHANNEL_ID")))
             if channel:
-                message = "📅 **Upcoming Birthdays this Week!** 🎉\n"
                 for user in upcoming_birthdays:
-                    message += f"🎂 <@{user['discord_id']}> - {user['bday_day']}/{user['bday_month']}\n"
-                await channel.send(message)
+                    username = await get_username_from_id(bot, user['discord_id'])
+                    await channel.send(f"Kweh! Cumpleaños a la vista 👀 de **{username}**")
             else:
-                print("[WARN] Birthday channel not found.")
+                logger.warning("Birthday channel not found.")
         else:
-            print("[INFO] No upcoming birthdays this week.")
+            logger.info("No upcoming birthdays in the next 7 days.")
 
     except Exception as e:
-        print(f"[ERROR] Failed to announce weekly birthdays: {e}")
+        logger.error("Failed to announce upcoming birthdays: %s", e, exc_info=True)
 
+
+@bot.tree.command(name="birthday_announce_upcoming", description="Announce upcoming birthdays in the next 7 days.")
+async def birthday_announce_upcoming(interaction: discord.Interaction):
+    try:
+        await announce_upcoming_birthdays()
+        await interaction.response.send_message("✅ Upcoming birthday announcement triggered.", ephemeral=True)
+    except Exception as e:
+        logger.error("Failed to trigger upcoming birthdays: %s", e, exc_info=True)
+        await interaction.response.send_message("❌ Failed to trigger upcoming birthday announcement.", ephemeral=True)
 
 
 # Run the bot
