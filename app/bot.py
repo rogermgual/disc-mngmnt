@@ -181,7 +181,7 @@ async def birthday_add(interaction: discord.Interaction, day: int, month: int):
     logger.info("Registering birthday for user %s", interaction.user.id)
     user_id = str(interaction.user.id)
 
-    await interaction.response.defer(ephemeral=False)
+    await interaction.response.defer(ephemeral=True)
 
     try:
         existing = await db.fetchrow("SELECT * FROM birthdays WHERE discord_id = $1", user_id)
