@@ -155,9 +155,11 @@ async def ping(interaction: discord.Interaction):
 ## Birthdays
 @bot.tree.command(name="birthday_add", description="Register a birthday.")
 async def birthday_add(interaction: discord.Interaction, day: int, month: int):
-    """Register a birthday if the user doesn't have one. If it does, it sends an informative message."""
+    """Register a birthday if the user doesn't have one. If it does, it updates the stored date."""
     logger.info("Registering birthday for user %s", interaction.user.id)
     user_id = str(interaction.user.id)
+
+    await interaction.response.defer(ephemeral=False)
 
     try:
         existing = await db.fetchrow("SELECT * FROM birthdays WHERE discord_id = $1", user_id)
@@ -187,7 +189,7 @@ async def birthday_add(interaction: discord.Interaction, day: int, month: int):
         logger.error("An error occurred while saving birthday for %s: %s", user_id, e, exc_info=True)
         message = "❌ An error occurred while saving your birthday."
 
-    await interaction.response.send_message(message)
+    await interaction.followup.send(message)
 
 
 @bot.tree.command(name="birthday_remove", description="Remove a birthday.")
@@ -338,7 +340,7 @@ async def announce_upcoming_birthdays():
     """
     logger.info("Checking upcoming birthdays...")
     today = datetime.date.today()
-    upcoming_birthdays = []
+    upcoming_birthdays = {}
 
     try:
         for delta in range(1, 8):
@@ -348,19 +350,23 @@ async def announce_upcoming_birthdays():
                 check_date.day, check_date.month
             )
             for user in birthdays:
-                upcoming_birthdays.append({
-                    'discord_id': user['discord_id'],
-                    'bday_day': user['bday_day'],
-                    'bday_month': user['bday_month'],
-                    'check_date': check_date
-                })
+                if user['discord_id'] not in upcoming_birthdays:
+                    upcoming_birthdays[user['discord_id']] = {
+                        'discord_id': user['discord_id'],
+                        'bday_day': user['bday_day'],
+                        'bday_month': user['bday_month'],
+                        'check_date': check_date
+                    }
 
         if upcoming_birthdays:
             channel = bot.get_channel(int(os.getenv("SERVER_UPDATES_CHANNEL_ID")))
             if channel:
-                for user in upcoming_birthdays:
+                for user in upcoming_birthdays.values():
                     username = await get_username_from_id(bot, user['discord_id'])
-                    await channel.send(f"Kweh! Cumpleaños a la vista 👀 de **{username}**")
+                    birthday_text = f"{user['bday_day']}/{user['bday_month']}"
+                    await channel.send(
+                        f"Kweh! Cumpleaños a la vista 👀 de **{username}** el {birthday_text}"
+                    )
             else:
                 logger.warning("Birthday channel not found.")
         else:
