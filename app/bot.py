@@ -75,6 +75,28 @@ async def get_username_from_id(bot, user_id: str):
     except Exception:
         return f"ID:{user_id}"
 
+async def get_upcoming_birthdays(days: int = 7):
+    """
+    Returns a list of upcoming birthdays in the next `days` days.
+    """
+    today = datetime.date.today()
+    birthdays = await db.fetch("SELECT discord_id, bday_day, bday_month FROM birthdays")
+    upcoming = {}
+
+    for user in birthdays:
+        for delta in range(1, days + 1):
+            check_date = today + datetime.timedelta(days=delta)
+            if user["bday_day"] == check_date.day and user["bday_month"] == check_date.month:
+                upcoming[user["discord_id"]] = {
+                    "discord_id": user["discord_id"],
+                    "bday_day": user["bday_day"],
+                    "bday_month": user["bday_month"],
+                    "check_date": check_date,
+                }
+                break
+
+    return list(upcoming.values())
+
 # Charge the environment variables
 load_dotenv()
 
@@ -222,22 +244,8 @@ async def birthday_week(interaction: discord.Interaction):
     """
     Slash command that checks for upcoming birthdays this week (on demand).
     """
-    today = datetime.date.today()
-    start_week = today - datetime.timedelta(days=today.weekday())  # Monday
-    end_week = start_week + datetime.timedelta(days=6)
-
     try:
-        upcoming_birthdays = await db.fetch(
-            """
-            SELECT discord_id, bday_day, bday_month FROM birthdays
-            WHERE (bday_month = $1 AND bday_day >= $2) 
-            OR (bday_month = $3 AND bday_day <= $4)
-            OR (bday_month > $5 AND bday_month < $6)
-            """,
-            start_week.month, start_week.day,
-            end_week.month, end_week.day,
-            start_week.month, end_week.month
-        )
+        upcoming_birthdays = await get_upcoming_birthdays(days=7)
 
         if upcoming_birthdays:
             message = "🎉 **Birthdays this week!** 🎉\n"
@@ -339,29 +347,14 @@ async def announce_upcoming_birthdays():
     Announces the birthdays for the next 7 days.
     """
     logger.info("Checking upcoming birthdays...")
-    today = datetime.date.today()
-    upcoming_birthdays = {}
 
     try:
-        for delta in range(1, 8):
-            check_date = today + datetime.timedelta(days=delta)
-            birthdays = await db.fetch(
-                "SELECT discord_id, bday_day, bday_month FROM birthdays WHERE bday_day = $1 AND bday_month = $2",
-                check_date.day, check_date.month
-            )
-            for user in birthdays:
-                if user['discord_id'] not in upcoming_birthdays:
-                    upcoming_birthdays[user['discord_id']] = {
-                        'discord_id': user['discord_id'],
-                        'bday_day': user['bday_day'],
-                        'bday_month': user['bday_month'],
-                        'check_date': check_date
-                    }
+        upcoming_birthdays = await get_upcoming_birthdays(days=7)
 
         if upcoming_birthdays:
             channel = bot.get_channel(int(os.getenv("SERVER_UPDATES_CHANNEL_ID")))
             if channel:
-                for user in upcoming_birthdays.values():
+                for user in upcoming_birthdays:
                     username = await get_username_from_id(bot, user['discord_id'])
                     birthday_text = f"{user['bday_day']}/{user['bday_month']}"
                     await channel.send(
